@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Ular Lapar</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 10px;
+            min-height: 100vh;
+        }
+        #gameContainer {
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            padding: 15px;
+            max-width: 100%;
+            width: 350px;
+            text-align: center;
+        }
+        #gameLogo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border-radius: 50%;
+        }
+        #gameLogo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #gameCanvas {
+            border: 2px solid #4a90e2;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(74,144,226,0.2);
+            max-width: 100%;
+            height: auto;
+        }
+        #gameInfo {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        #difficultySelector {
+            margin-bottom: 15px;
+        }
+        select, button {
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 5px;
+            border: 1px solid #4a90e2;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 3px;
+        }
+        select:hover, button:hover {
+            background-color: #4a90e2;
+            color: white;
+        }
+        button {
+            background-color: #4a90e2;
+            color: white;
+        }
+        button:hover {
+            background-color: #3a7bc8;
+        }
+        h1 {
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        #directionControls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px;
+            margin-top: 15px;
+        }
+        #directionControls button {
+            font-size: 18px;
+            padding: 12px;
+        }
+        #copyright {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+        @media (max-width: 600px) {
+            #gameContainer {
+                width: 90%;
+                padding: 8px;
+            }
+            h1 {
+                font-size: 18px;
+            }
+            select, button {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            #directionControls button {
+                font-size: 14px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="gameLogo">
+            <img src="20240727_214641-picsay-removebg-preview-picsay.jpg" alt="Game Ular Logo">
+        </div>
+        <h1>Game Ular Laper</h1>
+        <div id="difficultySelector">
+            <label for="difficulty">Pilih Tingkat Kesulitan:</label>
+            <select id="difficulty">
+                <option value="mudah">Mudah</option>
+                <option value="sedang">Sedang</option>
+                <option value="sulit">Sulit</option>
+            </select>
+        </div>
+        <canvas id="gameCanvas" width="280" height="280"></canvas>
+        <div id="gameInfo">
+            <span>Skor: <span id="currentScore">0</span></span>
+        </div>
+        <div id="gameControls">
+            <button id="startButton">Mulai</button>
+            <button id="pauseButton">Berhenti</button>
+            <button id="restartButton">Ulang</button>
+            <button id="resumeButton" style="display: none;">Lanjut</button>
+        </div>
+        <div id="directionControls">
+            <button id="leftButton">←</button>
+            <button id="upButton">↑</button>
+            <button id="rightButton">→</button>
+            <div></div>
+            <button id="downButton">↓</button>
+        </div>
+        <div id="copyright">© 2024 Game Ular Lapar. Rian Renaldy.</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('currentScore');
+        const difficultySelector = document.getElementById('difficulty');
+        const startButton = document.getElementById('startButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const restartButton = document.getElementById('restartButton');
+        const resumeButton = document.getElementById('resumeButton');
+        const leftButton = document.getElementById('leftButton');
+        const upButton = document.getElementById('upButton');
+        const downButton = document.getElementById('downButton');
+        const rightButton = document.getElementById('rightButton');
+
+        let snake = [{x: 140, y: 140}, {x: 130, y: 140}, {x: 120, y: 140}];
+        let foods = [];
+        let direction = 'right';
+        let score = 0;
+        let speed = 100;
+        let gameInterval;
+        let isPaused = false;
+        let isGameStarted = false;
+
+        const difficulties = {
+            mudah: { initialSpeed: 150, speedDecrease: 5, foodCount: 3 },
+            sedang: { initialSpeed: 100, speedDecrease: 10, foodCount: 5 },
+            sulit: { initialSpeed: 80, speedDecrease: 15, foodCount: 7 }
+        };
+
+        const foodColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#ff6b6b'];
+
+        function setDifficulty() {
+            const difficulty = difficulties[difficultySelector.value];
+            speed = difficulty.initialSpeed;
+            resetGame();
+        }
+
+        function generateFoods() {
+            foods = [];
+            const difficulty = difficulties[difficultySelector.value];
+            for (let i = 0; i < difficulty.foodCount; i++) {
+                foods.push({
+                    x: Math.floor(Math.random() * (canvas.width / 10)) * 10,
+                    y: Math.floor(Math.random() * (canvas.height / 10)) * 10,
+                    color: foodColors[Math.floor(Math.random() * foodColors.length)]
+                });
+            }
+        }
+
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? '#4a90e2' : '#6ab0de';
+                ctx.fillRect(segment.x, segment.y, 10, 10);
+                ctx.strokeStyle = '#3a7bc8';
+                ctx.strokeRect(segment.x, segment.y, 10, 10);
+                
+                if (index === 0) {
+                    // Gambar mata
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(segment.x + 2, segment.y + 2, 2, 2);
+                    ctx.fillRect(segment.x + 6, segment.y + 2, 2, 2);
+                }
+            });
+        }
+
+        function drawFoods() {
+            foods.forEach(food => {
+                ctx.beginPath();
+                ctx.arc(food.x + 5, food.y + 5, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = food.color;
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        function moveSnake() {
+            const head = {x: snake[0].x, y: snake[0].y};
+
+            switch(direction) {
+                case 'up': head.y -= 10; break;
+                case 'down': head.y += 10; break;
+                case 'left': head.x -= 10; break;
+                case 'right': head.x += 10; break;
+            }
+
+            if (head.x < 0) head.x = canvas.width - 10;
+            if (head.x >= canvas.width) head.x = 0;
+            if (head.y < 0) head.y = canvas.height - 10;
+            if (head.y >= canvas.height) head.y = 0;
+
+            snake.unshift(head);
+
+            let foodEaten = false;
+            foods = foods.filter(food => {
+                if (head.x === food.x && head.y === food.y) {
+                    score++;
+                    foodEaten = true;
+                    return false;
+                }
+                return true;
+            });
+
+            if (foodEaten) {
+                scoreDisplay.textContent = score;
+                const difficulty = difficulties[difficultySelector.value];
+                speed = Math.max(50, speed - difficulty.speedDecrease);
+                foods.push({
+                    x: Math.floor(Math.random() * (canvas.width / 10)) * 10,
+                    y: Math.floor(Math.random() * (canvas.height / 10)) * 10,
+                    color: foodColors[Math.floor(Math.random() * foodColors.length)]
+                });
+            } else {
+                snake.pop();
+            }
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawSnake();
+            drawFoods();
+            moveSnake();
+
+            if (checkCollision()) {
+                alert(`Game Over! Skor Anda: ${score}`);
+                resetGame();
+            } else {
+                gameInterval = setTimeout(gameLoop, speed);
+            }
+        }
+
+        function resetGame() {
+            clearTimeout(gameInterval);
+            snake = [{x: 140, y: 140}, {x: 130, y: 140}, {x: 120, y: 140}];
+            direction = 'right';
+            score = 0;
+            scoreDisplay.textContent = score;
+            generateFoods();
+            isPaused = false;
+            isGameStarted = false;
+            pauseButton.textContent = 'Berhenti';
+            resumeButton.style.display = 'none';
+            startButton.style.display = 'inline-block';
+            drawSnake();
+            drawFoods();
+        }
+
+        function startGame() {
+            if (!isGameStarted) {
+                isGameStarted = true;
+                startButton.style.display = 'none';
+                gameLoop();
+            }
+        }
+
+        function pauseGame() {
+            if (isGameStarted) {
+                if (!isPaused) {
+                    clearTimeout(gameInterval);
+                    isPaused = true;
+                    pauseButton.textContent = 'Lanjut';
+                    resumeButton.style.display = 'inline-block';
+                } else {
+                    resumeGame();
+                }
+            }
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            pauseButton.textContent = 'Berhenti';
+            resumeButton.style.display = 'none';
+            gameLoop();
+        }
+
+        function changeDirection(newDirection) {
+            if (!isPaused && isGameStarted) {
+                switch(newDirection) {
+                    case 'up': if (direction !== 'down') direction = 'up'; break;
+                    case 'down': if (direction !== 'up') direction = 'down'; break;
+                    case 'left': if (direction !== 'right') direction = 'left'; break;
+                    case 'right': if (direction !== 'left') direction = 'right'; break;
+                }
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (isGameStarted && !isPaused) {
+                switch(e.key) {
+                    case 'ArrowUp': changeDirection('up'); break;
+                    case 'ArrowDown': changeDirection('down'); break;
+                    case 'ArrowLeft': changeDirection('left'); break;
+                    case 'ArrowRight': changeDirection('right'); break;
+                }
+            }
+        });
+
+        difficultySelector.addEventListener('change', setDifficulty);
+        startButton.addEventListener('click', startGame);
+        pauseButton.addEventListener('click', pauseGame);
+        restartButton.addEventListener('click', resetGame);
+        resumeButton.addEventListener('click', resumeGame);
+        leftButton.addEventListener('click', () => changeDirection('left'));
+        upButton.addEventListener('click', () => changeDirection('up'));
+        downButton.addEventListener('click', () => changeDirection('down'));
+        rightButton.addEventListener('click', () => changeDirection('right'));
+
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const containerWidth = container.clientWidth;
+            const canvasSize = Math.min(containerWidth - 30, 280);
+            canvas.style.width = `${canvasSize}px`;
+            canvas.style.height = `${canvasSize}px`;
+        }
+
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            resetGame();
+        });
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
